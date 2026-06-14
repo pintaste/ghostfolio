@@ -7,4 +7,21 @@
     font-variant-numeric: initial;
     line-height: 1;
   }
+
+  // 涨跌字体配色（由全局 --gf-color-*-rgb 驱动，着色数字、正负号与单位/符号）
+  .gf-gain {
+    .gf-sign,
+    .gf-unit,
+    .value {
+      color: rgb(var(--gf-color-gain-rgb));
+    }
+  }
+
+  .gf-loss {
+    .gf-sign,
+    .gf-unit,
+    .value {
+      color: rgb(var(--gf-color-loss-rgb));
+    }
+  }
 }

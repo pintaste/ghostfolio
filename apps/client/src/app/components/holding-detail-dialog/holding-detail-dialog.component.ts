@@ -16,10 +16,12 @@ import {
   EnhancedSymbolProfile,
   Filter,
   LineChartItem,
+  ToggleOption,
   User
 } from '@ghostfolio/common/interfaces';
 import { hasPermission, permissions } from '@ghostfolio/common/permissions';
 import { internalRoutes } from '@ghostfolio/common/routes/routes';
+import { DateRange } from '@ghostfolio/common/types';
 import { GfAccountsTableComponent } from '@ghostfolio/ui/accounts-table';
 import { GfActivitiesTableComponent } from '@ghostfolio/ui/activities-table';
 import { GfDataProviderCreditsComponent } from '@ghostfolio/ui/data-provider-credits';
@@ -31,6 +33,7 @@ import { GfLineChartComponent } from '@ghostfolio/ui/line-chart';
 import { GfPortfolioProportionChartComponent } from '@ghostfolio/ui/portfolio-proportion-chart';
 import { DataService } from '@ghostfolio/ui/services';
 import { GfTagsSelectorComponent } from '@ghostfolio/ui/tags-selector';
+import { GfToggleComponent } from '@ghostfolio/ui/toggle';
 import { GfValueComponent } from '@ghostfolio/ui/value';
 
 import {
@@ -60,7 +63,18 @@ import { Router, RouterModule } from '@angular/router';
 import { IonIcon } from '@ionic/angular/standalone';
 import { Account, MarketData, Tag } from '@prisma/client';
 import { isUUID } from 'class-validator';
-import { format, isSameMonth, isToday, parseISO } from 'date-fns';
+import {
+  differenceInYears,
+  format,
+  isSameMonth,
+  isToday,
+  max as maxDate,
+  parseISO,
+  startOfYear,
+  subMonths,
+  subWeeks,
+  subYears
+} from 'date-fns';
 import { addIcons } from 'ionicons';
 import {
   arrowDownCircleOutline,
@@ -89,6 +103,7 @@ import { HoldingDetailDialogParams } from './interfaces/interfaces';
     GfLineChartComponent,
     GfPortfolioProportionChartComponent,
     GfTagsSelectorComponent,
+    GfToggleComponent,
     GfValueComponent,
     IonIcon,
     MatButtonModule,
@@ -120,6 +135,8 @@ export class GfHoldingDetailDialogComponent implements OnInit {
   public dataProviderInfo: DataProviderInfo;
   public dataSource: MatTableDataSource<Activity>;
   public dateOfFirstActivity: string;
+  public dateRange: DateRange = 'max';
+  public dateRangeOptions: ToggleOption[] = [];
   public dividendInBaseCurrency: number;
   public dividendInBaseCurrencyPrecision = 2;
   public dividendYieldPercentWithCurrencyEffect: number;
@@ -164,6 +181,11 @@ export class GfHoldingDetailDialogComponent implements OnInit {
   public translate = translate;
   public user: User;
   public value: number;
+
+  // Full (unclipped) series; the public ones above are the clipped views shown
+  // in the chart and are derived via applyDateRange()
+  private benchmarkDataItemsFull: LineChartItem[] = [];
+  private historicalDataItemsFull: LineChartItem[] = [];
 
   public constructor(
     private changeDetectorRef: ChangeDetectorRef,
@@ -510,6 +532,12 @@ export class GfHoldingDetailDialogComponent implements OnInit {
             }
           );
 
+          // Keep the full series and derive the clipped view for the chart
+          this.historicalDataItemsFull = this.historicalDataItems;
+          this.benchmarkDataItemsFull = this.benchmarkDataItems;
+          this.dateRangeOptions = this.buildDateRangeOptions();
+          this.applyDateRange();
+
           if (this.hasPermissionToReadMarketDataOfOwnAssetProfile) {
             this.fetchMarketData();
           }
@@ -560,6 +588,105 @@ export class GfHoldingDetailDialogComponent implements OnInit {
 
   public onClose() {
     this.dialogRef.close();
+  }
+
+  public onDateRangeChange({ value }: { value: string }) {
+    this.dateRange = value as DateRange;
+    this.applyDateRange();
+    this.changeDetectorRef.markForCheck();
+  }
+
+  // Clip the full series to the selected range (front-end only). 'max' keeps the
+  // full series. The first-activity endpoint (before startDate) naturally drops
+  // out of shorter ranges, so no distortion is introduced.
+  private applyDateRange() {
+    const startDate = this.getRangeStartDate();
+
+    if (!startDate) {
+      this.historicalDataItems = this.historicalDataItemsFull;
+      this.benchmarkDataItems = this.benchmarkDataItemsFull;
+
+      return;
+    }
+
+    const startTime = startDate.getTime();
+    const isWithinRange = ({ date }: LineChartItem) =>
+      new Date(date).getTime() >= startTime;
+
+    this.historicalDataItems =
+      this.historicalDataItemsFull.filter(isWithinRange);
+    this.benchmarkDataItems = this.benchmarkDataItemsFull.filter(isWithinRange);
+  }
+
+  // Rolling-window start date for the active range, clamped to the first
+  // activity. Returns undefined for 'max' (no clipping).
+  private getRangeStartDate(): Date | undefined {
+    if (this.dateRange === 'max') {
+      return undefined;
+    }
+
+    const now = new Date();
+    let start: Date;
+
+    switch (this.dateRange) {
+      case '1w':
+        start = subWeeks(now, 1);
+        break;
+      case '1m':
+        start = subMonths(now, 1);
+        break;
+      case '3m':
+        start = subMonths(now, 3);
+        break;
+      case '6m':
+        start = subMonths(now, 6);
+        break;
+      case 'ytd':
+        start = startOfYear(now);
+        break;
+      case '1y':
+        start = subYears(now, 1);
+        break;
+      default:
+        return undefined;
+    }
+
+    // Never go before the first activity
+    return this.dateOfFirstActivity
+      ? maxDate([start, parseISO(this.dateOfFirstActivity)])
+      : start;
+  }
+
+  // Robinhood-style range pills; longer windows only appear once the holding
+  // has enough history to make them meaningful
+  private buildDateRangeOptions(): ToggleOption[] {
+    const firstActivity = this.dateOfFirstActivity
+      ? parseISO(this.dateOfFirstActivity)
+      : new Date();
+    const now = new Date();
+
+    const options: ToggleOption[] = [
+      { label: $localize`1W`, value: '1w' },
+      { label: $localize`1M`, value: '1m' }
+    ];
+
+    if (firstActivity <= subMonths(now, 1)) {
+      options.push({ label: $localize`3M`, value: '3m' });
+    }
+
+    if (firstActivity <= subMonths(now, 3)) {
+      options.push({ label: $localize`6M`, value: '6m' });
+    }
+
+    options.push({ label: $localize`YTD`, value: 'ytd' });
+
+    if (differenceInYears(now, firstActivity) >= 1) {
+      options.push({ label: $localize`1Y`, value: '1y' });
+    }
+
+    options.push({ label: $localize`Max`, value: 'max' });
+
+    return options;
   }
 
   public onCloseHolding() {

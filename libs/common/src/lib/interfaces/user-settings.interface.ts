@@ -2,6 +2,7 @@ import { XRayRulesSettings } from '@ghostfolio/common/interfaces/x-ray-rules-set
 import {
   ColorScheme,
   DateRange,
+  GainLossColorScheme,
   HoldingsViewMode,
   ViewMode
 } from '@ghostfolio/common/types';
@@ -16,6 +17,7 @@ export interface UserSettings {
   colorScheme?: ColorScheme;
   dateRange?: DateRange;
   emergencyFund?: number;
+  gainLossColorScheme?: GainLossColorScheme;
   'filters.accounts'?: string[];
   'filters.assetClasses'?: AssetClass[];
   'filters.dataSource'?: string;

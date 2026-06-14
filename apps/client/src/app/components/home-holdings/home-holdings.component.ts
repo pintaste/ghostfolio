@@ -28,7 +28,12 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { Router, RouterModule } from '@angular/router';
 import { IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { gridOutline, reorderFourOutline } from 'ionicons/icons';
+import {
+  gridOutline,
+  lockClosedOutline,
+  lockOpenOutline,
+  reorderFourOutline
+} from 'ionicons/icons';
 import { DeviceDetectorService } from 'ngx-device-detector';
 
 @Component({
@@ -55,8 +60,10 @@ export class GfHomeHoldingsComponent implements OnInit {
   public hasImpersonationId: boolean;
   public hasPermissionToAccessHoldingsChart: boolean;
   public hasPermissionToCreateActivity: boolean;
+  public baseCurrencyOptions = ['USD', 'CAD', 'CNY'];
   public holdings: PortfolioPosition[];
   public holdingType: HoldingType = 'ACTIVE';
+  public isHeaderSticky = false;
   public holdingTypeOptions: ToggleOption[] = [
     { label: $localize`Active`, value: 'ACTIVE' },
     { label: $localize`Closed`, value: 'CLOSED' }
@@ -77,7 +84,12 @@ export class GfHomeHoldingsComponent implements OnInit {
     private router: Router,
     private userService: UserService
   ) {
-    addIcons({ gridOutline, reorderFourOutline });
+    addIcons({
+      gridOutline,
+      lockClosedOutline,
+      lockOpenOutline,
+      reorderFourOutline
+    });
   }
 
   public ngOnInit() {
@@ -131,10 +143,37 @@ export class GfHomeHoldingsComponent implements OnInit {
       });
   }
 
+  public onChangeBaseCurrency(baseCurrency: string) {
+    if (!baseCurrency || baseCurrency === this.user?.settings?.baseCurrency) {
+      return;
+    }
+
+    this.dataService
+      .putUserSetting({ baseCurrency })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.userService
+          .get(true)
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe((user) => {
+            this.user = user;
+
+            // Re-fetch holdings so values reflect the new base currency
+            this.initialize();
+
+            this.changeDetectorRef.markForCheck();
+          });
+      });
+  }
+
   public onChangeHoldingType(aHoldingType: HoldingType) {
     this.holdingType = aHoldingType;
 
     this.initialize();
+  }
+
+  public onToggleStickyHeader() {
+    this.isHeaderSticky = !this.isHeaderSticky;
   }
 
   public onHoldingClicked({ dataSource, symbol }: AssetProfileIdentifier) {

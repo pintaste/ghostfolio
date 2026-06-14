@@ -12,6 +12,10 @@
   --font-family-sans-serif: 'Inter', Roboto, 'Helvetica Neue', sans-serif;
   --light-background: rgb(255, 255, 255);
 
+  // Gain/loss colors — default 红涨绿跌 (gain = red, loss = green)
+  --gf-color-gain-rgb: 220, 53, 69;
+  --gf-color-loss-rgb: 40, 167, 69;
+
   --dark-primary-text:
     #{color.channel(variables.$dark-primary-text, 'red')},
     #{color.channel(variables.$dark-primary-text, 'green')},
@@ -197,6 +201,13 @@
   --palette-warn-contrast-700: 255, 255, 255, 1;
   --palette-warn-contrast-800: 255, 255, 255, 1;
   --palette-warn-contrast-900: 255, 255, 255, 1;
+}
+
+// Western gain/loss colors (gain = green, loss = red) when the user opts out of
+// the default 红涨绿跌 scheme
+body.gf-performance-colors-western {
+  --gf-color-gain-rgb: 40, 167, 69;
+  --gf-color-loss-rgb: 220, 53, 69;
 }
 
 body {

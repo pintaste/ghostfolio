@@ -27,16 +27,25 @@
   @if (value || value === 0 || value === null) {
     <div
       class="align-items-center d-flex"
+      [class.gf-gain]="
+        colorizeSign && !useAbsoluteValue && isNumber && +value > 0
+      "
+      [class.gf-loss]="
+        colorizeSign && !useAbsoluteValue && isNumber && +value < 0
+      "
       [class.justify-content-end]="position === 'end'"
     >
       @if (isNumber || value === null) {
         @if (colorizeSign && !useAbsoluteValue) {
           @if (+value > 0) {
-            <div class="mr-1 text-success">+</div>
+            <div class="gf-sign mr-1">+</div>
           }
           @if (+value < 0) {
-            <div class="mr-1 text-danger">-</div>
+            <div class="gf-sign mr-1">-</div>
           }
+        }
+        @if (value !== null && currencySymbol) {
+          <div class="gf-unit">{{ currencySymbol }}</div>
         }
         <div
           class="mb-0 value"
@@ -50,8 +59,8 @@
             {{ formattedValue }}
           }
         </div>
-        @if (isPercent || unit) {
-          <div class="ml-1">
+        @if (isPercent || (unit && !isCurrency)) {
+          <div class="gf-unit ml-1">
             {{ isPercent ? '%' : unit }}
           </div>
         }

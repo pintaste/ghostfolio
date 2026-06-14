@@ -52,8 +52,10 @@ export class GfLineChartComponent
 {
   @Input() benchmarkDataItems: LineChartItem[] = [];
   @Input() benchmarkLabel = '';
+  @Input() colorizeBasedOnPerformance = false;
   @Input() colorScheme: ColorScheme;
   @Input() currency: string;
+  @Input() dateRange: string;
   @Input() historicalDataItems: LineChartItem[];
   @Input() isAnimated = false;
   @Input() label: string;
@@ -128,6 +130,12 @@ export class GfLineChartComponent
       marketPrices.push(historicalDataItem.value);
     });
 
+    // Pick the line color: teal by default, or green/red derived from the
+    // first-to-last trend when performance coloring is requested
+    const lineColorRgb = this.colorizeBasedOnPerformance
+      ? this.getPerformanceColorRgb(marketPrices)
+      : primaryColorRgb;
+
     const gradient = this.chartCanvas?.nativeElement
       ?.getContext('2d')
       ?.createLinearGradient(
@@ -143,7 +151,9 @@ export class GfLineChartComponent
     if (gradient && this.showGradient) {
       gradient.addColorStop(
         0,
-        `rgba(${primaryColorRgb.r}, ${primaryColorRgb.g}, ${primaryColorRgb.b}, 0.01)`
+        `rgba(${lineColorRgb.r}, ${lineColorRgb.g}, ${lineColorRgb.b}, ${
+          this.colorizeBasedOnPerformance ? 0.24 : 0.01
+        })`
       );
       gradient.addColorStop(1, getBackgroundColor(this.colorScheme));
     }
@@ -162,7 +172,7 @@ export class GfLineChartComponent
         },
         {
           backgroundColor: gradient,
-          borderColor: `rgb(${primaryColorRgb.r}, ${primaryColorRgb.g}, ${primaryColorRgb.b})`,
+          borderColor: `rgb(${lineColorRgb.r}, ${lineColorRgb.g}, ${lineColorRgb.b})`,
           borderWidth: 2,
           data: marketPrices,
           fill: true,
@@ -223,7 +233,7 @@ export class GfLineChartComponent
                 },
                 time: {
                   tooltipFormat: getDateFormatString(this.locale),
-                  unit: 'year'
+                  unit: this.getTimeUnit()
                 },
                 type: 'time'
               },
@@ -293,6 +303,58 @@ export class GfLineChartComponent
     }
 
     this.isLoading = false;
+  }
+
+  // Choose a sensible x-axis time unit for the active range (defaults to year)
+  private getTimeUnit(): 'day' | 'month' | 'year' {
+    switch (this.dateRange) {
+      case '1d':
+      case '1w':
+      case 'wtd':
+      case '1m':
+      case 'mtd':
+        return 'day';
+      case '3m':
+      case '6m':
+      case 'ytd':
+      case '1y':
+        return 'month';
+      default:
+        return 'year';
+    }
+  }
+
+  // Gain/loss colors are driven by the global --gf-color-*-rgb CSS variables so
+  // the chart follows the user's 红涨绿跌 / Western color setting
+  private getCssColorRgb(variableName: string, fallback: string) {
+    const value =
+      (typeof getComputedStyle !== 'undefined' &&
+        getComputedStyle(document.documentElement)
+          .getPropertyValue(variableName)
+          .trim()) ||
+      fallback;
+
+    const [r, g, b] = value.split(',').map((part) => Number(part.trim()));
+
+    return { r, g, b };
+  }
+
+  // Gain color when the series ends at/above where it started, loss otherwise
+  private getPerformanceColorRgb(marketPrices: number[]) {
+    const validPrices = marketPrices?.filter(
+      (price) => typeof price === 'number' && !isNaN(price)
+    );
+
+    if (!validPrices?.length) {
+      return primaryColorRgb;
+    }
+
+    const first = validPrices[0];
+    const last = validPrices[validPrices.length - 1];
+
+    return last >= first
+      ? this.getCssColorRgb('--gf-color-gain-rgb', '220, 53, 69')
+      : this.getCssColorRgb('--gf-color-loss-rgb', '40, 167, 69');
   }
 
   private getAnimationConfigurationForAxis({

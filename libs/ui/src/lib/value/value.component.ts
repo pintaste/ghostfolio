@@ -41,6 +41,7 @@ export class GfValueComponent implements AfterViewInit, OnChanges {
   @Input() isCurrency = false;
   @Input() isDate = false;
   @Input() isPercent = false;
+  @Input() isQuantity = false;
   @Input() locale: string;
   @Input() position = '';
   @Input() size: 'large' | 'medium' | 'small' = 'small';
@@ -52,6 +53,7 @@ export class GfValueComponent implements AfterViewInit, OnChanges {
   labelContent!: ElementRef<HTMLSpanElement>;
 
   public absoluteValue = 0;
+  public currencySymbol = '';
   public formattedValue = '';
   public hasLabel = false;
   public isNumber = false;
@@ -84,6 +86,23 @@ export class GfValueComponent implements AfterViewInit, OnChanges {
     return precision !== undefined && precision >= 0;
   }
 
+  // 数量列动态精度: 小额自动按量级给足有效位(最多8位), 大额2位, 不强制补零
+  private getQuantityFormatOptions(value: number): Intl.NumberFormatOptions {
+    const absoluteValue = Math.abs(value);
+    let maximumFractionDigits: number;
+
+    if (absoluteValue === 0) {
+      maximumFractionDigits = 0;
+    } else if (absoluteValue >= 1) {
+      maximumFractionDigits = 2;
+    } else {
+      const leadingZeros = Math.floor(-Math.log10(absoluteValue));
+      maximumFractionDigits = Math.min(8, leadingZeros + 4);
+    }
+
+    return { maximumFractionDigits, minimumFractionDigits: 0 };
+  }
+
   public ngAfterViewInit() {
     if (this.labelContent) {
       const element = this.labelContent.nativeElement;
@@ -97,6 +116,13 @@ export class GfValueComponent implements AfterViewInit, OnChanges {
 
   public ngOnChanges() {
     this.initializeVariables();
+
+    // Resolve a currency symbol ($, CA$, CN¥, …) to show as a prefix instead of
+    // the currency code suffix
+    this.currencySymbol =
+      this.isCurrency && this.unit
+        ? this.getCurrencySymbol(this.unit, this.locale)
+        : '';
 
     if (this.value || this.value === 0) {
       if (isNumber(this.value)) {
@@ -120,6 +146,13 @@ export class GfValueComponent implements AfterViewInit, OnChanges {
               );
             } catch {}
           }
+        } else if (this.isQuantity) {
+          try {
+            this.formattedValue = this.value?.toLocaleString(
+              this.locale,
+              this.getQuantityFormatOptions(this.value as number)
+            );
+          } catch {}
         } else if (this.isCurrency) {
           try {
             this.formattedValue = this.value?.toLocaleString(
@@ -183,6 +216,21 @@ export class GfValueComponent implements AfterViewInit, OnChanges {
         duration: ms('3 seconds')
       }
     );
+  }
+
+  private getCurrencySymbol(currencyCode: string, locale: string): string {
+    try {
+      const parts = new Intl.NumberFormat(locale, {
+        currency: currencyCode,
+        style: 'currency'
+      }).formatToParts(0);
+
+      return (
+        parts.find((part) => part.type === 'currency')?.value ?? currencyCode
+      );
+    } catch {
+      return currencyCode;
+    }
   }
 
   private initializeVariables() {

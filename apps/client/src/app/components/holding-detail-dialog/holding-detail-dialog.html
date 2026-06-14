@@ -20,11 +20,13 @@
     </div>
 
     <gf-line-chart
-      class="mb-4"
+      class="mb-2"
       [benchmarkDataItems]="benchmarkDataItems"
       [benchmarkLabel]="benchmarkLabel"
+      [colorizeBasedOnPerformance]="true"
       [colorScheme]="data.colorScheme"
       [currency]="SymbolProfile?.currency"
+      [dateRange]="dateRange"
       [historicalDataItems]="historicalDataItems"
       [isAnimated]="true"
       [label]="
@@ -35,6 +37,17 @@
       [showXAxis]="true"
       [showYAxis]="true"
     />
+
+    @if (dateRangeOptions?.length) {
+      <div class="d-flex justify-content-center mb-4">
+        <gf-toggle
+          [defaultValue]="dateRange"
+          [isLoading]="false"
+          [options]="dateRangeOptions"
+          (valueChange)="onDateRangeChange($event)"
+        />
+      </div>
+    }
 
     <mat-tab-group
       animationDuration="0ms"
@@ -47,11 +60,26 @@
           <div class="d-none d-sm-block ml-2" i18n>Overview</div>
         </ng-template>
         <div class="container mt-3 p-0">
+          <!-- Hero: 核心盈亏，突出显示 -->
           <div class="row w-100">
-            <div class="col-6 mb-3">
+            <div class="col-12 col-md-4 mb-4">
               <gf-value
                 i18n
-                size="medium"
+                size="large"
+                [isCurrency]="true"
+                [locale]="data.locale"
+                [precision]="
+                  investmentInBaseCurrencyWithCurrencyEffectPrecision
+                "
+                [unit]="data.baseCurrency"
+                [value]="investmentInBaseCurrencyWithCurrencyEffect"
+                >Investment</gf-value
+              >
+            </div>
+            <div class="col-12 col-md-4 mb-4">
+              <gf-value
+                i18n
+                size="large"
                 [colorizeSign]="true"
                 [isCurrency]="true"
                 [locale]="data.locale"
@@ -69,10 +97,10 @@
                 }
               </gf-value>
             </div>
-            <div class="col-6 mb-3">
+            <div class="col-12 col-md-4 mb-4">
               <gf-value
                 i18n
-                size="medium"
+                size="large"
                 [colorizeSign]="true"
                 [isPercent]="true"
                 [locale]="data.locale"
@@ -89,7 +117,23 @@
                 }
               </gf-value>
             </div>
-            <div class="col-6 mb-3">
+          </div>
+
+          <hr class="mt-1 mb-4" />
+
+          <!-- 关键指标 -->
+          <div class="row w-100">
+            <div class="col-6 col-md-4 mb-3">
+              <gf-value
+                i18n
+                size="medium"
+                [locale]="data.locale"
+                [precision]="quantityPrecision"
+                [value]="quantity"
+                >Quantity</gf-value
+              >
+            </div>
+            <div class="col-6 col-md-4 mb-3">
               <gf-value
                 i18n
                 size="medium"
@@ -101,7 +145,7 @@
                 >Average Unit Price</gf-value
               >
             </div>
-            <div class="col-6 mb-3">
+            <div class="col-6 col-md-4 mb-3">
               <gf-value
                 i18n
                 size="medium"
@@ -113,7 +157,7 @@
                 >Market Price</gf-value
               >
             </div>
-            <div class="col-6 mb-3">
+            <div class="col-6 col-md-4 mb-3">
               <gf-value
                 i18n
                 size="medium"
@@ -129,7 +173,7 @@
                 >Minimum Price</gf-value
               >
             </div>
-            <div class="col-6 mb-3">
+            <div class="col-6 col-md-4 mb-3">
               <gf-value
                 i18n
                 size="medium"
@@ -145,34 +189,21 @@
                 >Maximum Price</gf-value
               >
             </div>
-            <div class="col-6 mb-3">
-              <gf-value
-                i18n
-                size="medium"
-                [locale]="data.locale"
-                [precision]="quantityPrecision"
-                [value]="quantity"
-                >Quantity</gf-value
-              >
-            </div>
-            <div class="col-6 mb-3">
+            <div class="col-6 col-md-4 mb-3">
               <gf-value
                 i18n
                 size="medium"
                 [isCurrency]="true"
                 [locale]="data.locale"
-                [precision]="
-                  investmentInBaseCurrencyWithCurrencyEffectPrecision
-                "
                 [unit]="data.baseCurrency"
-                [value]="investmentInBaseCurrencyWithCurrencyEffect"
-                >Investment</gf-value
+                [value]="feeInBaseCurrency"
+                >Fees</gf-value
               >
             </div>
             @if (
               dividendInBaseCurrency && user?.settings?.isExperimentalFeatures
             ) {
-              <div class="col-6 mb-3">
+              <div class="col-6 col-md-4 mb-3">
                 <gf-value
                   i18n
                   size="medium"
@@ -184,7 +215,7 @@
                   >Dividend</gf-value
                 >
               </div>
-              <div class="col-6 mb-3">
+              <div class="col-6 col-md-4 mb-3">
                 <gf-value
                   i18n
                   size="medium"
@@ -195,18 +226,7 @@
                 >
               </div>
             }
-            <div class="col-6 mb-3">
-              <gf-value
-                i18n
-                size="medium"
-                [isCurrency]="true"
-                [locale]="data.locale"
-                [unit]="data.baseCurrency"
-                [value]="feeInBaseCurrency"
-                >Fees</gf-value
-              >
-            </div>
-            <div class="col-6 mb-3">
+            <div class="col-6 col-md-4 mb-3">
               <gf-value
                 i18n
                 size="medium"
@@ -217,7 +237,7 @@
                 >First Activity</gf-value
               >
             </div>
-            <div class="col-6 mb-3">
+            <div class="col-6 col-md-4 mb-3">
               <gf-value
                 size="medium"
                 [locale]="data.locale"
@@ -230,8 +250,13 @@
                 }
               </gf-value>
             </div>
-            <div class="col-6 mb-3"></div>
-            <div class="col-6 mb-3">
+          </div>
+
+          <hr />
+
+          <!-- 资产信息 -->
+          <div class="row w-100">
+            <div class="col-6 col-md-4 mb-3">
               <gf-value
                 i18n
                 size="medium"
@@ -240,7 +265,7 @@
                 >Asset Class</gf-value
               >
             </div>
-            <div class="col-6 mb-3">
+            <div class="col-6 col-md-4 mb-3">
               <gf-value
                 i18n
                 size="medium"
@@ -309,7 +334,7 @@
                 </div>
               }
             }
-            <div class="col-6 mb-3">
+            <div class="col-6 col-md-4 mb-3">
               <gf-value
                 i18n
                 size="medium"
@@ -319,7 +344,7 @@
                 >Symbol</gf-value
               >
             </div>
-            <div class="col-6 mb-3">
+            <div class="col-6 col-md-4 mb-3">
               <gf-value
                 size="medium"
                 [enableCopyToClipboardButton]="true"

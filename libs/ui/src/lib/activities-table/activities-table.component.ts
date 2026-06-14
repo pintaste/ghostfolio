@@ -27,6 +27,7 @@ import {
   Output,
   ViewChild,
   computed,
+  effect,
   inject,
   input
 } from '@angular/core';
@@ -35,6 +36,7 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import {
   MatPaginator,
@@ -69,6 +71,7 @@ import {
   trashOutline
 } from 'ionicons/icons';
 import { NgxSkeletonLoaderModule } from 'ngx-skeleton-loader';
+import { merge } from 'rxjs';
 
 import { GfActivityTypeComponent } from '../activity-type/activity-type.component';
 import { GfEntityLogoComponent } from '../entity-logo/entity-logo.component';
@@ -88,6 +91,7 @@ import { GfValueComponent } from '../value/value.component';
     MatButtonModule,
     MatCheckboxModule,
     MatFormFieldModule,
+    MatInputModule,
     MatMenuModule,
     MatPaginatorModule,
     MatSelectModule,
@@ -105,6 +109,7 @@ import { GfValueComponent } from '../value/value.component';
 export class GfActivitiesTableComponent implements AfterViewInit, OnInit {
   @Input() baseCurrency: string;
   @Input() deviceType: string;
+  @Input() enableClientSideFilters = false;
   @Input() hasActivities: boolean;
   @Input() hasPermissionToCreateActivity: boolean;
   @Input() hasPermissionToDeleteActivity: boolean;
@@ -144,12 +149,45 @@ export class GfActivitiesTableComponent implements AfterViewInit, OnInit {
   public selectedRows = new SelectionModel<Activity>(true, []);
   public typesFilter = new FormControl<string[]>([]);
 
+  // Client-side filters (Activities page)
+  public assetSubClassFilter = new FormControl<string[]>([]);
+  public currencyFilter = new FormControl<string[]>([]);
+  public searchControl = new FormControl<string>('');
+
   public readonly dataSource = input.required<
     MatTableDataSource<Activity> | undefined
   >();
   public readonly showAccountColumn = input(true);
   public readonly showCheckbox = input(false);
   public readonly showNameColumn = input(true);
+
+  // Distinct asset sub classes present in the data (for the filter dropdown)
+  public readonly availableAssetSubClasses = computed(() => {
+    const values = new Set<string>();
+
+    for (const activity of this.dataSource()?.data ?? []) {
+      if (activity.SymbolProfile?.assetSubClass) {
+        values.add(activity.SymbolProfile.assetSubClass);
+      }
+    }
+
+    return [...values].sort();
+  });
+
+  // Distinct activity currencies present in the data (for the filter dropdown)
+  public readonly availableCurrencies = computed(() => {
+    const values = new Set<string>();
+
+    for (const activity of this.dataSource()?.data ?? []) {
+      const currency = activity.currency ?? activity.SymbolProfile?.currency;
+
+      if (currency) {
+        values.add(currency);
+      }
+    }
+
+    return [...values].sort();
+  });
 
   protected readonly displayedColumns = computed(() => {
     let columns = [
@@ -219,9 +257,42 @@ export class GfActivitiesTableComponent implements AfterViewInit, OnInit {
       tabletLandscapeOutline,
       trashOutline
     });
+
+    // When client-side filtering is enabled, attach the composite filter
+    // predicate and client-side sort/paginator to each (re)created dataSource
+    effect(() => {
+      const dataSource = this.dataSource();
+
+      if (dataSource && this.enableClientSideFilters) {
+        dataSource.filterPredicate = this.clientSideFilterPredicate;
+
+        if (this.paginator) {
+          dataSource.paginator = this.paginator;
+        }
+
+        if (this.sort) {
+          dataSource.sort = this.sort;
+        }
+
+        this.applyClientSideFilter();
+      }
+    });
   }
 
   public ngOnInit() {
+    if (this.enableClientSideFilters) {
+      merge(
+        this.assetSubClassFilter.valueChanges,
+        this.currencyFilter.valueChanges,
+        this.searchControl.valueChanges,
+        this.typesFilter.valueChanges
+      )
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe(() => {
+          this.applyClientSideFilter();
+        });
+    }
+
     if (this.showCheckbox()) {
       this.toggleAllRows();
       this.selectedRows.changed
@@ -231,11 +302,89 @@ export class GfActivitiesTableComponent implements AfterViewInit, OnInit {
         });
     }
 
-    this.typesFilter.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((types) => {
-        this.typesFilterChanged.emit(types ?? []);
-      });
+    if (!this.enableClientSideFilters) {
+      this.typesFilter.valueChanges
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe((types) => {
+          this.typesFilterChanged.emit(types ?? []);
+        });
+    }
+  }
+
+  // Composite client-side filter: free-text search + type + asset sub class +
+  // currency. Reads the form controls directly; the filter string only triggers
+  // re-evaluation.
+  private clientSideFilterPredicate = (activity: Activity): boolean => {
+    const search = (this.searchControl.value ?? '').trim().toLowerCase();
+    const types = this.typesFilter.value ?? [];
+    const assetSubClasses = this.assetSubClassFilter.value ?? [];
+    const currencies = this.currencyFilter.value ?? [];
+
+    if (search) {
+      const haystack = [
+        activity.SymbolProfile?.symbol,
+        activity.SymbolProfile?.name,
+        activity.comment
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      if (!haystack.includes(search)) {
+        return false;
+      }
+    }
+
+    if (types.length && !types.includes(activity.type)) {
+      return false;
+    }
+
+    if (assetSubClasses.length) {
+      const assetSubClass = activity.SymbolProfile?.assetSubClass ?? '';
+
+      if (!assetSubClasses.includes(assetSubClass)) {
+        return false;
+      }
+    }
+
+    if (currencies.length) {
+      const currency =
+        activity.currency ?? activity.SymbolProfile?.currency ?? '';
+
+      if (!currencies.includes(currency)) {
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  protected applyClientSideFilter() {
+    const dataSource = this.dataSource();
+
+    if (!dataSource) {
+      return;
+    }
+
+    const hasActiveFilter =
+      !!(this.searchControl.value ?? '').trim() ||
+      (this.typesFilter.value ?? []).length > 0 ||
+      (this.assetSubClassFilter.value ?? []).length > 0 ||
+      (this.currencyFilter.value ?? []).length > 0;
+
+    // MatTableDataSource only runs filterPredicate when filter is truthy
+    dataSource.filter = hasActiveFilter ? Date.now().toString() : '';
+
+    if (dataSource.paginator) {
+      dataSource.paginator.firstPage();
+    }
+  }
+
+  protected onResetClientSideFilters() {
+    this.searchControl.setValue('');
+    this.typesFilter.setValue([]);
+    this.assetSubClassFilter.setValue([]);
+    this.currencyFilter.setValue([]);
   }
 
   public ngAfterViewInit() {

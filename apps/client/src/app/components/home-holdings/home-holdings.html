@@ -7,7 +7,7 @@
   <div class="row">
     <div class="col-lg">
       <div class="d-flex">
-        <div class="d-flex">
+        <div class="align-items-center d-flex">
           <div class="d-none d-lg-block">
             <mat-button-toggle-group
               [formControl]="viewModeFormControl"
@@ -21,6 +21,40 @@
               </mat-button-toggle>
             </mat-button-toggle-group>
           </div>
+          @if (viewModeFormControl.value === 'TABLE') {
+            <mat-button-toggle-group
+              class="d-none d-lg-block ml-2"
+              [hideMultipleSelectionIndicator]="true"
+              [multiple]="true"
+            >
+              <mat-button-toggle
+                i18n-title
+                title="Freeze header"
+                [checked]="isHeaderSticky"
+                (change)="onToggleStickyHeader()"
+              >
+                <ion-icon
+                  [name]="
+                    isHeaderSticky ? 'lock-closed-outline' : 'lock-open-outline'
+                  "
+                />
+              </mat-button-toggle>
+            </mat-button-toggle-group>
+            <mat-button-toggle-group
+              aria-label="Currency"
+              class="d-none d-lg-block ml-2"
+              i18n-aria-label
+              [hideSingleSelectionIndicator]="true"
+              [value]="user?.settings?.baseCurrency"
+              (change)="onChangeBaseCurrency($event.value)"
+            >
+              @for (currency of baseCurrencyOptions; track currency) {
+                <mat-button-toggle [value]="currency">{{
+                  currency
+                }}</mat-button-toggle>
+              }
+            </mat-button-toggle-group>
+          }
         </div>
         <div class="align-items-center d-flex flex-grow-1 justify-content-end">
           <gf-toggle
@@ -44,10 +78,13 @@
           (treemapChartClicked)="onHoldingClicked($event)"
         />
       }
-      <div [class.d-none]="viewModeFormControl.value !== 'TABLE'">
+      <div class="mt-3" [class.d-none]="viewModeFormControl.value !== 'TABLE'">
         <gf-holdings-table
+          [groupByAssetSubClass]="true"
           [holdings]="holdings"
           [locale]="user?.settings?.locale"
+          [showTotal]="true"
+          [stickyHeader]="isHeaderSticky"
           (holdingClicked)="onHoldingClicked($event)"
         />
         @if (

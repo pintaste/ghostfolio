@@ -2,6 +2,7 @@ import { XRayRulesSettings } from '@ghostfolio/common/interfaces';
 import type {
   ColorScheme,
   DateRange,
+  GainLossColorScheme,
   HoldingsViewMode,
   ViewMode
 } from '@ghostfolio/common/types';
@@ -55,6 +56,10 @@ export class UpdateUserSettingDto {
   @IsNumber()
   @IsOptional()
   emergencyFund?: number;
+
+  @IsIn(['CHINESE', 'WESTERN'] as GainLossColorScheme[])
+  @IsOptional()
+  gainLossColorScheme?: GainLossColorScheme;
 
   @IsArray()
   @IsOptional()

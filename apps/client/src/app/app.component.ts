@@ -219,6 +219,8 @@ export class GfAppComponent implements OnInit {
 
         this.initializeTheme(this.user?.settings.colorScheme);
 
+        this.applyGainLossColorScheme(this.user?.settings.gainLossColorScheme);
+
         this.changeDetectorRef.markForCheck();
       });
   }
@@ -247,6 +249,15 @@ export class GfAppComponent implements OnInit {
     this.userService.signOut();
 
     document.location.href = `/${document.documentElement.lang}`;
+  }
+
+  // Default is 红涨绿跌 (gain = red); 'WESTERN' opts into gain = green
+  private applyGainLossColorScheme(scheme?: string) {
+    if (scheme === 'WESTERN') {
+      this.document.body.classList.add('gf-performance-colors-western');
+    } else {
+      this.document.body.classList.remove('gf-performance-colors-western');
+    }
   }
 
   private initializeTheme(userPreferredColorScheme?: ColorScheme) {

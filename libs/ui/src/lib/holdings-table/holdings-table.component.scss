@@ -1,3 +1,41 @@
 :host {
   display: block;
+
+  // Keep the (optionally sticky) header opaque and above scrolling rows so
+  // content does not show through when it sticks to the top
+  th.mat-mdc-header-cell {
+    background-color: var(--mat-table-background-color);
+  }
+
+  // When the header is pinned, the wrapper becomes a vertically scrollable
+  // pane so position: sticky has a bounded scroll container to stick within
+  .gf-sticky-scroll {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  // Category header rows: clearly set apart from regular asset rows
+  .gf-group-header-row {
+    background-color: rgba(125, 125, 125, 0.16);
+
+    td.mat-mdc-cell {
+      border-top: 2px solid rgba(125, 125, 125, 0.45);
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding-bottom: 0.6rem;
+      padding-top: 0.6rem;
+      text-transform: none;
+    }
+  }
+
+  // Grand total row at the very bottom
+  .gf-total-row {
+    td.mat-mdc-footer-cell {
+      border-top: 2px solid rgba(125, 125, 125, 0.45);
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding-bottom: 0.6rem;
+      padding-top: 0.6rem;
+    }
+  }
 }

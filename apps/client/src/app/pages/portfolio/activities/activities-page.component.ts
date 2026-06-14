@@ -138,14 +138,13 @@ export class GfActivitiesPageComponent implements OnInit {
     this.dataService
       .fetchActivities({
         range,
-        activityTypes: this.activityTypesFilter.length
-          ? this.activityTypesFilter
-          : undefined,
+        // Load all activities so filtering / sorting / pagination run
+        // client-side (see enableClientSideFilters in the table)
         filters: this.userService.getFilters(),
-        skip: this.pageIndex * this.pageSize,
+        skip: 0,
         sortColumn: this.sortColumn,
         sortDirection: this.sortDirection,
-        take: this.pageSize
+        take: Number.MAX_SAFE_INTEGER
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(({ activities, count }) => {
@@ -164,9 +163,9 @@ export class GfActivitiesPageComponent implements OnInit {
   }
 
   public onChangePage(page: PageEvent) {
+    // All activities are loaded; pagination is handled client-side by the
+    // table's MatPaginator, so no refetch is required
     this.pageIndex = page.pageIndex;
-
-    this.fetchActivities();
   }
 
   public onClickActivity({ dataSource, symbol }: AssetProfileIdentifier) {
@@ -324,11 +323,11 @@ export class GfActivitiesPageComponent implements OnInit {
   }
 
   public onSortChanged({ active, direction }: Sort) {
+    // Sorting is handled client-side by the table's MatSort over the fully
+    // loaded dataSource, so no refetch is required
     this.pageIndex = 0;
     this.sortColumn = active;
     this.sortDirection = direction;
-
-    this.fetchActivities();
   }
 
   public onTypesFilterChanged(aTypes: string[]) {

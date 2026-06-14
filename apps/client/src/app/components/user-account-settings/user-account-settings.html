@@ -222,6 +222,33 @@
           />
         </div>
       </div>
+      <div class="align-items-center d-flex mb-2">
+        <div class="pr-1 w-50">
+          <div i18n>Gain / Loss Colors</div>
+          <div class="hint-text text-muted" i18n>
+            Choose which color represents a gain
+          </div>
+        </div>
+        <div class="pl-1 w-50">
+          <mat-form-field appearance="outline" class="w-100 without-hint">
+            <mat-select
+              name="gainLossColorScheme"
+              [disabled]="!hasPermissionToUpdateUserSettings"
+              [value]="user.settings.gainLossColorScheme ?? 'CHINESE'"
+              (selectionChange)="
+                onChangeUserSetting('gainLossColorScheme', $event.value)
+              "
+            >
+              <mat-option i18n value="CHINESE"
+                >Gain in red (红涨绿跌)</mat-option
+              >
+              <mat-option i18n value="WESTERN"
+                >Gain in green (绿涨红跌)</mat-option
+              >
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </div>
       <div class="align-items-center d-flex mt-4 py-1">
         <div class="pr-1 w-50">
           <div i18n>Biometric Authentication</div>
